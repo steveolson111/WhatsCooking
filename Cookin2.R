@@ -5,9 +5,9 @@ library(tidymodels)
 
 
 trainSet <- read_file("train.json") %>%
-  fromJSON()
+fromJSON()
 testSet <- read_file("test.json") %>%
-  fromJSON()
+fromJSON()
 
 trainSet$cuisine <- as.factor(trainSet$cuisine)
 
@@ -64,4 +64,3 @@ submission <- tibble(
 )
 
 write_csv(submission, "submission.csv")
-
