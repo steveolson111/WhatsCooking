@@ -1,7 +1,11 @@
-# Whats Cooking?
+# Whats Cooking? Aiming for .72
 library(jsonlite)
 library(tidytext)
 library(tidymodels)
+library(doParallel)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
 
 
 trainSet <- read_file("train.json") %>%
@@ -20,7 +24,7 @@ trainSet$ingredients[[1]]
 ## Define TF-IDF
 rec <- recipe(cuisine ~ ingredients, data = trainSet) %>%
   step_mutate(ingredients = tokenlist(ingredients)) %>%
-  step_tokenfilter(ingredients, max_tokens=500) %>%
+  step_tokenfilter(ingredients, max_tokens=1500) %>%
   step_tfidf(ingredients)
 
 set.seed(123)
@@ -30,8 +34,8 @@ valid_data <- testing(data_split)
 
 rf_model <- rand_forest(
   mtry = 50,        # number of predictors to try at each split
-  trees = 5,      # number of trees
-  min_n = 5         # minimum node size
+  trees = 200,      # number of trees
+  min_n = 10         # minimum node size
 ) %>%
   set_engine("ranger") %>%
   set_mode("classification")
@@ -65,3 +69,4 @@ submission <- tibble(
 
 write_csv(submission, "submission.csv")
 
+stopCluster(cl)

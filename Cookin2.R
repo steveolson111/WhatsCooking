@@ -1,13 +1,17 @@
-# Whats Cooking?
+# Whats Cooking? Aiming for .72
 library(jsonlite)
 library(tidytext)
 library(tidymodels)
+library(doParallel)
+
+cl <- makePSOCKcluster(parallel::detectCores() - 1)
+registerDoParallel(cl)
 
 
 trainSet <- read_file("train.json") %>%
-fromJSON()
+  fromJSON()
 testSet <- read_file("test.json") %>%
-fromJSON()
+  fromJSON()
 
 trainSet$cuisine <- as.factor(trainSet$cuisine)
 
@@ -17,10 +21,18 @@ names(trainSet)
 class(trainSet$ingredients)
 trainSet$ingredients[[1]]
 
+trainSet$num_ingredients <- sapply(trainSet$ingredients, length)
+trainSet$avg_ingredient_length <- sapply(trainSet$ingredients, function(x) mean(nchar(x)))
+trainSet$num_long_ingredients <- sapply(trainSet$ingredients, function(x) sum(sapply(strsplit(x, " "), length) > 1))
+
+testSet$num_ingredients <- sapply(testSet$ingredients, length)
+testSet$avg_ingredient_length <- sapply(testSet$ingredients, function(x) mean(nchar(x)))
+testSet$num_long_ingredients <- sapply(testSet$ingredients, function(x) sum(sapply(strsplit(x, " "), length) > 1))
+
 ## Define TF-IDF
 rec <- recipe(cuisine ~ ingredients, data = trainSet) %>%
   step_mutate(ingredients = tokenlist(ingredients)) %>%
-  step_tokenfilter(ingredients, max_tokens=500) %>%
+  step_tokenfilter(ingredients, max_tokens=1500) %>%
   step_tfidf(ingredients)
 
 set.seed(123)
@@ -30,8 +42,8 @@ valid_data <- testing(data_split)
 
 rf_model <- rand_forest(
   mtry = 50,        # number of predictors to try at each split
-  trees = 5,      # number of trees
-  min_n = 5         # minimum node size
+  trees = 200,      # number of trees
+  min_n = 10         # minimum node size
 ) %>%
   set_engine("ranger") %>%
   set_mode("classification")
@@ -64,3 +76,5 @@ submission <- tibble(
 )
 
 write_csv(submission, "submission.csv")
+
+stopCluster(cl)
